@@ -12,7 +12,14 @@
 
 Import-Module "$PSScriptRoot\BinaryInstall" -Force #-Verbose #-Force
 
-Write-HostStep "Ed-Fi binary installer functions loaded correctly."
+Write-HostInfo "Ed-Fi binary installer functions loaded correctly."
 Write-Host "To install Ed-Fi run any of the following commands:" 
-Write-Host "    Install-EdFiProduction" 
-Write-Host "    Install-EdFiSandbox"
+Write-HostStep " Ed-Fi ODS\API v3.3.0"
+Write-Host "    Install-EdFiProductionV33" 
+Write-Host "    Install-EdFiSandboxV33"
+Write-HostStep " Ed-Fi ODS\API v3.2.0"
+Write-Host "    Install-EdFiProductionV32" 
+Write-Host "    Install-EdFiSandboxV32"
+Write-HostStep " Ed-Fi ODS\API v2.6.0"
+Write-Host "    Install-EdFiProductionV26" 
+Write-Host "    Install-EdFiSandboxV26"
