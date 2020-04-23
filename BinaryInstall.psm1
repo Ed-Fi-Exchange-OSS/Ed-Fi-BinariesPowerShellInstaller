@@ -74,6 +74,10 @@ Function RunBaseEdFiInstall($environment, $edfiVersion) {
                                         Production = @{ "apiStartup:type" = 'SharedInstance' };
                                         Sandbox    = @{ "apiStartup:type" = 'Sandbox' };
                                     }
+                            v340 = @{  
+                                        Production = @{ "apiStartup:type" = 'SharedInstance' };
+                                        Sandbox    = @{ "apiStartup:type" = 'Sandbox' };
+                                    }
                         }
                         databases = @(  #all environments
                                         @{src="EdFi_Admin";dest=""}
@@ -109,6 +113,9 @@ Function RunBaseEdFiInstall($environment, $edfiVersion) {
                         requiredInEnvironments = @("Sandbox")
                         environment = "Sandbox";
                         url="https://www.myget.org/F/ed-fi/api/v2/package/EdFi.Ods.Admin.Web.EFA/$edfiVersion"
+                        urlVersionOverride = @{
+                            v340 = "https://www.myget.org/F/ed-fi/api/v2/package/EdFi.Ods.Admin.Web.EFA/3.3.0"
+                        }
                         iisAuthentication = @{ "anonymousAuthentication" = $true 
                                                 "windowsAuthentication" = $false
                                             }
@@ -129,6 +136,9 @@ Function RunBaseEdFiInstall($environment, $edfiVersion) {
                         description="This is the Swagger Api Docs web site.";
                         requiredInEnvironments = @("Production","Staging","Sandbox")
                         url="https://www.myget.org/F/ed-fi/api/v2/package/EdFi.Ods.SwaggerUI.EFA/$edfiVersion";
+                        urlVersionOverride = @{
+                            v340 = "https://www.myget.org/F/ed-fi/api/v2/package/EdFi.Ods.SwaggerUI.EFA/3.3.0"
+                        }
                         iisAuthentication = @{ "anonymousAuthentication" = $true 
                                                 "windowsAuthentication" = $false
                                             }
@@ -140,6 +150,9 @@ Function RunBaseEdFiInstall($environment, $edfiVersion) {
                             v330 = @{
                                 "swagger.webApiMetadataUrl" = "$apiBaseUrl/metadata/"
                                 "swagger.webApiVersionUrl"  = "$apiBaseUrl" };
+                            v340 = @{
+                                "swagger.webApiMetadataUrl" = "$apiBaseUrl/metadata/"
+                                "swagger.webApiVersionUrl"  = "$apiBaseUrl" };
                         };
                     }
                     @{ name="AdminApp";
@@ -148,6 +161,7 @@ Function RunBaseEdFiInstall($environment, $edfiVersion) {
                         requiredInEnvironments = @("Production","Staging")
                         url="https://www.myget.org/F/ed-fi/api/v2/package/EdFi.ODS.AdminApp.Web/$edfiVersion";
                         urlVersionOverride = @{
+                            v340 = "https://www.myget.org/F/ed-fi/api/v2/package/EdFi.ODS.AdminApp.Web/3.3.0"
                             v320 = "https://www.myget.org/F/ed-fi/api/v2/package/EdFi.ODS.AdminApp.Web/3.2.0.1"
                             v250 = "https://www.myget.org/F/ed-fi/api/v2/package/EdFi.ODS.AdminApp.Web/2.5.1"
                         }
@@ -663,6 +677,22 @@ Function Set-DocsHTMLPathsToWorkWithVirtualDirectories($swaggerDefaultHtmlPath)
     $fileContent = Get-Content $swaggerDefaultHtmlPath
     $fileContent[3]+="<base href='docs/' />"
     $fileContent | Set-Content $swaggerDefaultHtmlPath
+}
+
+Function Install-EdFiProductionV34 {
+    # Used to measure execution time.
+    $start_time = Get-Date
+    RunBaseEdFiInstall "Production" "3.4.0"
+    #DONE
+    Write-Output "Done... Time taken: $((Get-Date).Subtract($start_time).Seconds) second(s)"
+}
+
+Function Install-EdFiSandboxV34 {
+    # Used to measure execution time.
+    $start_time = Get-Date
+    RunBaseEdFiInstall "Sandbox" "3.4.0"
+    #DONE
+    Write-Output "Done... Time taken: $((Get-Date).Subtract($start_time).Seconds) second(s)"
 }
 
 Function Install-EdFiProductionV33 {
