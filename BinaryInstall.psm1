@@ -19,6 +19,11 @@
 #Need SmoExtended for backups
 [System.Reflection.Assembly]::LoadWithPartialName("Microsoft.SqlServer.SmoExtended") | Out-Null
 
+Import-Module "$PSScriptRoot\SSL" -Force
+Import-Module "$PSScriptRoot\MsSQLServer" -Force
+Import-Module "$PSScriptRoot\IIS" -Force 
+Import-Module "$PSScriptRoot\Chocolatey" -Force 
+
 # Helper functions
 Function RunBaseEdFiInstall($environment, $edfiVersion) {
 
@@ -42,16 +47,12 @@ Function RunBaseEdFiInstall($environment, $edfiVersion) {
     $dbNameSufix = ""
     $integratedSecurityUser = "IIS APPPOOL\DefaultAppPool"
     $integratedSecurityRole = 'sysadmin'
-        # SQL Server 2017 Path Variables
-    $dataFileDestination = "C:\Program Files\Microsoft SQL Server\MSSQL14.MSSQLSERVER\MSSQL\DATA"
-    $logFileDestination  = "C:\Program Files\Microsoft SQL Server\MSSQL14.MSSQLSERVER\MSSQL\DATA"
-        # SQL Server 2019 Path Variables
-    #$dataFileDestination = "C:\Program Files\Microsoft SQL Server\MSSQL15.MSSQLSERVER\MSSQL\DATA"
-    #$logFileDestination  = "C:\Program Files\Microsoft SQL Server\MSSQL15.MSSQLSERVER\MSSQL\DATA"
+    # SQL Server Path Variables (You can override with your desired path)
+    $dataFileDestination = Get-MsSQLDataFileDestination
+    $logFileDestination  = Get-MsSQLLogFileDestination
 
     # Other Parameters you should not need to change
     $tempPathForBinaries = "C:\temp\ed-fi\binaries\" # The temp path to use to download needed Ed-Fi binaries.
-
 
     # Binaries Metadata
     $binaries = @(  
@@ -114,7 +115,8 @@ Function RunBaseEdFiInstall($environment, $edfiVersion) {
                         environment = "Sandbox";
                         url="https://www.myget.org/F/ed-fi/api/v2/package/EdFi.Ods.Admin.Web.EFA/$edfiVersion"
                         urlVersionOverride = @{
-                            v340 = "https://www.myget.org/F/ed-fi/api/v2/package/EdFi.Ods.Admin.Web.EFA/3.3.0"
+                            #v340 = "https://www.myget.org/F/ed-fi/api/v2/package/EdFi.Ods.Admin.Web.EFA/3.3.0"
+                            v340 = "https://www.myget.org/F/ed-fi/api/v2/package/EdFi.Ods.SandboxAdmin.Web.EFA/3.4.0"
                         }
                         iisAuthentication = @{ "anonymousAuthentication" = $true 
                                                 "windowsAuthentication" = $false
@@ -137,7 +139,8 @@ Function RunBaseEdFiInstall($environment, $edfiVersion) {
                         requiredInEnvironments = @("Production","Staging","Sandbox")
                         url="https://www.myget.org/F/ed-fi/api/v2/package/EdFi.Ods.SwaggerUI.EFA/$edfiVersion";
                         urlVersionOverride = @{
-                            v340 = "https://www.myget.org/F/ed-fi/api/v2/package/EdFi.Ods.SwaggerUI.EFA/3.3.0"
+                            #v340 = "https://www.myget.org/F/ed-fi/api/v2/package/EdFi.Ods.SwaggerUI.EFA/3.3.0"
+                             v340 = "https://www.myget.org/F/ed-fi/api/v2/package/EdFi.Ods.SwaggerUI.EFA/3.4.0"
                         }
                         iisAuthentication = @{ "anonymousAuthentication" = $true 
                                                 "windowsAuthentication" = $false
@@ -339,118 +342,17 @@ Function Write-HostStep($message) {
     Write-Host "*** " $message " ***"-ForegroundColor Green
 }
 
-# Ensure all prerequisites are installed.
-# Region: Self Signed Certificate Functions
-Function Install-TrustedSSLCertificate()
-{
-    $certFriendlyName = 'Ed-Fi localhost SSL'
-    
-    # See if we already have it installed.
-    If($cert = Get-EdFiSSLCertInstalled $certFriendlyName){
-        Write-Host "     Skipping: Certificate '$certFriendlyName' already exists."
-        return $cert
-    }
-
-    Write-Host "Installing: '$certFriendlyName' certificate in Cert:\LocalMachine\My and then in Cert:\LocalMachine\Root"
-    #Create self signed certificate
-    $params = @{
-                  DnsName = "localhost"
-                  NotAfter = (Get-Date).AddYears(10)
-                  CertStoreLocation = 'Cert:\LocalMachine\My'
-                  KeyExportPolicy = 'Exportable'
-                  FriendlyName = $certFriendlyName
-                  KeyFriendlyName = $certFriendlyName
-                  KeyDescription = 'This is a self signed certificate for running the Ed-Fi ODS\API and tools on the local IIS with a valid SSL.'
-               }
-
-    # Create certificate
-    $selfSignedCert = New-SelfSignedCertificate @params
-    
-    # New certificates can only be installed into MY store. So lets export it and import it into LocalMachine\Root
-    # We need to import into LocalMachine\Root so that its a valid trusted SSL certificate.
-    Export-Certificate -Cert $selfSignedCert -FilePath "C:\temp\ed-fi\edfiLocalhostSSL.crt"
-    $certInRoot = Import-Certificate -CertStoreLocation 'Cert:\LocalMachine\Root' -FilePath "C:\temp\ed-fi\edfiLocalhostSSL.crt"
-    $certInRoot.FriendlyName = $certFriendlyName
-
-    return $selfSignedCert
+Function Write-BigMessage($title, $message) {
+    $divider = "*** "
+    for($i=0;$i -lt $message.length;$i++){ $divider += "*" } 
+    Write-Host $divider -ForegroundColor Green
+    Write-Host "*"-ForegroundColor Green
+    Write-Host "*** " $title " ***"-ForegroundColor Green
+    Write-Host "*"-ForegroundColor Green
+    Write-Host "* " $message " *"-ForegroundColor Green
+    Write-Host "*"-ForegroundColor Green
+    Write-Host $divider -ForegroundColor Green
 }
-
-Function Get-EdFiSSLCertInstalled($certificateFriendlyName)
-{
-    $certificates = Get-ChildItem Cert:\LocalMachine\My
-
-    foreach($cert in $certificates)
-    {
-        if($cert.FriendlyName -eq $certificateFriendlyName){ return $cert; }
-    }
-
-    return $null;
-}
-#endregion
-
-Function Install-Chocolatey(){
-    if(!(Test-Path "$($env:ProgramData)\chocolatey\choco.exe"))
-    {
-        Write-Host "Installing: Cocholatey..."
-        Set-ExecutionPolicy Bypass -Scope Process -Force; iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
-    }else{Write-Host "Skipping: Cocholatey is already installed."}
-}
-
-# Region: IIS Functions
-Function Install-IISPrerequisites() {
-    $allPreReqsInstalled = $true;
-    # Throw this infront 'IIS-ASP', to make fail.
-    $prereqs = @('IIS-WebServerRole','IIS-WebServer','IIS-CommonHttpFeatures','IIS-HttpErrors','IIS-ApplicationDevelopment','NetFx4Extended-ASPNET45','IIS-NetFxExtensibility45','IIS-HealthAndDiagnostics','IIS-HttpLogging','IIS-Security','IIS-RequestFiltering','IIS-Performance','IIS-WebServerManagementTools','IIS-ManagementConsole','IIS-BasicAuthentication','IIS-WindowsAuthentication','IIS-StaticContent','IIS-DefaultDocument','IIS-ISAPIExtensions','IIS-ISAPIFilter','IIS-HttpCompressionStatic','IIS-ASPNET45');
-    # 'IIS-IIS6ManagementCompatibility','IIS-Metabase', 'IIS-HttpRedirect', 'IIS-LoggingLibraries','IIS-RequestMonitor''IIS-HttpTracing','IIS-WebSockets', 'IIS-ApplicationInit'?
-
-    Write-Host "Ensuring all IIS prerequisites are already installed."
-    foreach($p in $prereqs)
-    {
-        if((Get-WindowsOptionalFeature -Online -FeatureName $p).State -eq "Disabled") { $allPreReqsInstalled = $false; Write-Host "Prerequisite not installed: $p" }
-    }
-
-    if($allPreReqsInstalled){ Write-Host "Skipping: All IIS prerequisites are already installed." }
-    else { Enable-WindowsOptionalFeature -Online -FeatureName $prereqs }
-}
-
-Function Install-SSLCertOnIIS(){
-    $certThumbprint = (Install-TrustedSSLCertificate).Thumbprint
-    Write-Host "     Found cert" $certThumbprint
-    $siteName = "Default Web Site"
-    $binding = Get-WebBinding -Name $siteName -Protocol "https"
-    if(!$binding) {
-        Write-Host "     No https binding defined on IIS"
-        New-WebBinding -Name $siteName -IP "*" -Port 443 -Protocol https
-        $binding = Get-WebBinding -Name $siteName -Protocol "https"
-    }
-    $binding.AddSslCertificate($certThumbprint,"my")    
-}
-
-Function Install-IISUrlRewrite() {
-# URLRewrite Module (File exists or Registry entry?)
-    if(!(Test-Path "$env:SystemRoot\system32\inetsrv\rewrite.dll")) { 
-        Write-Host "     Installing: Url-Rewrite Module..."
-        choco install urlrewrite /y    
-    }else { Write-Host "     Skipping: UrlRewrite module is already installed." }
-}
-
-Function IsNetVersionInstalled($major, $minor){
-    $DotNetInstallationInfo = Get-ChildItem -Path 'HKLM:\SOFTWARE\Microsoft\NET Framework Setup\NDP' -Recurse
-    $InstalledDotNetVersions = $DotNetInstallationInfo | Get-ItemProperty -Name 'Version' -ErrorAction SilentlyContinue
-    $InstalledVersionNumbers = $InstalledDotNetVersions | ForEach-Object {$_.Version -as [System.Version]}
-    #$InstalledVersionNumbers;
-    $Installed3Point5Versions = $InstalledVersionNumbers | Where-Object {$_.Major -eq $major -and $_.Minor -eq $minor}
-    $DotNet3Point5IsInstalled = $Installed3Point5Versions.Count -ge 1
-    return $DotNet3Point5IsInstalled
-}
-
-Function Install-NetFramework48() {
-    if(!(IsNetVersionInstalled 4 8)){
-        Write-Host "     Installing: .Net Version 4.8"
-        choco install dotnetfx
-    }else{ Write-Host "     Skiping: .Net Version 4.8 as it is already installed." }
-}
-#endregion
 
 Function Install-EdFiPrerequisites() {
     $allPreReqsInstalled = $true
@@ -459,15 +361,14 @@ Function Install-EdFiPrerequisites() {
 
     # Ensure the following are installed.
     Install-Chocolatey
+    
+    # Lets install the ones that need a reboot/powershell restart
+    Install-MsSQLServerExpress
+    Install-NetFramework48
+    
     Install-IISPrerequisites
     Install-IISUrlRewrite
     
-    Install-NetFramework48
-    
-
-    # MsSQL Server
-    if (!(Test-Path 'HKLM:\Software\Microsoft\Microsoft SQL Server\Instance Names\SQL')) { $allPreReqsInstalled = $false; Write-Host "     Prerequisite not installed: MsSQL-Server" }
-
     # If not all Pre Reqs installed halt!
     if(!$allPreReqsInstalled){ Write-Error "Error: Missing Prerequisites. Look above for list." -ErrorAction Stop }
 }
@@ -580,66 +481,6 @@ Function Set-IntegratedSecurityInSecretJsonFile($jsonFilePath) {
     
     $a | ConvertTo-Json -depth 32| set-content $jsonFilePath
 }
-# endregion
-
-# Region: MsSQL Database Functions
-Function Add-SQLUser($serverInstance, $User, $Role) {
-    $server = New-Object Microsoft.SqlServer.Management.Smo.Server "."
-    if ($server.Logins.Contains($User)) { Write-Host "     Skipping: User '$User' already part of the MsSQL Logins" }
-    else {
-        # Add the WindowsUser
-        $SqlUser = New-Object -TypeName Microsoft.SqlServer.Management.Smo.Login -ArgumentList $server, $User
-        $SqlUser.LoginType = 'WindowsUser'
-        $sqlUser.PasswordPolicyEnforced = $false
-        $SqlUser.Create()
-
-        # Add to the role.
-        $serverRole = $server.Roles | where {$_.Name -eq $Role}
-        $serverRole.AddMember("$User")
-    }
-}
-
-Function Restore-Database($db, $dbDestinationName, $backupLocation, $dataFileDestination, $logFileDestination) {
-    $originDbName = $db.src;
-    $newDbName = $dbDestinationName;
-
-	$dataFileOrigin = $originDbName
-	$logFileOrigin  = $originDbName+"_log"
-	$dataFileLocation = "$dataFileDestination\$newDbName.mdf"
-	$logFileLocation  = "$logFileDestination\$newDbName"+"_log.ldf"
-	  
-	Write-Host "     Restoring database $newDbName"
-	  
-	#Some special cases...
-	if($newDbName -like '*Populated_Template*' )
-	{
-	    $dataFileOrigin = "EdFi_Ods_Populated_Template"
-	    $logFileOrigin = "EdFi_Ods_Populated_Template_log"
-	}
-	  
-	#Some special cases...
-	if($newDbName -like '*minimal*')
-	{
-	    $dataFileOrigin = "EdFi_Ods_Minimal_Template"
-	    $logFileOrigin = "EdFi_Ods_Minimal_Template_log"
-	}
-	  
-	$RelocateData = New-Object Microsoft.SqlServer.Management.Smo.RelocateFile("$dataFileOrigin", "$dataFileLocation")
-	$RelocateLog = New-Object Microsoft.SqlServer.Management.Smo.RelocateFile("$logFileOrigin", "$logFileLocation")
-	Restore-SqlDatabase -ServerInstance "." -Database "$newDbName" -BackupFile "$backupLocation$originDbName.bak" -RelocateFile @($RelocateData,$RelocateLog)
-}
-
-Function Get-DestDbName($dbmetadata, $prefix, $sufix) {
-    
-    $dbname = if($dbmetadata.dest){ $dbmetadata.dest }else{ $dbmetadata.src }
-
-    if($prefix -And $sufix){"$prefix$dbname$sufix"; return}
-    if($prefix){"$prefix$dbname"; return}
-    if($sufix){"$dbname$sufix"; return}
-
-    $dbname         
-}
-# endregion
 
 Function Initialize-Url($url){
         
@@ -688,6 +529,14 @@ Function Install-EdFiProductionV34 {
 }
 
 Function Install-EdFiSandboxV34 {
+    # Used to measure execution time.
+    $start_time = Get-Date
+    RunBaseEdFiInstall "Sandbox" "3.4.0"
+    #DONE
+    Write-Output "Done... Time taken: $((Get-Date).Subtract($start_time).Seconds) second(s)"
+}
+
+Function Install-EdFiSandboxV34-APIOnly {
     # Used to measure execution time.
     $start_time = Get-Date
     RunBaseEdFiInstall "Sandbox" "3.4.0"

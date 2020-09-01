@@ -11,6 +11,7 @@
 ############################################################
 
 Import-Module "$PSScriptRoot\BinaryInstall" -Force #-Verbose #-Force
+Import-Module "$PSScriptRoot\CHRABQuickStart" -Force #-Verbose #-Force
 
 Write-HostInfo "Ed-Fi binary installer functions loaded correctly."
 Write-Host "To install Ed-Fi run any of the following commands:" 
@@ -26,3 +27,7 @@ Write-Host "    Install-EdFiSandboxV32"
 Write-HostStep " Ed-Fi ODS\API v2.6.0"
 Write-Host "    Install-EdFiProductionV26" 
 Write-Host "    Install-EdFiSandboxV26"
+Write-Host ""
+Write-HostStep " To install the chronic absenteeism started kit run the following command:"
+Write-Host "    Install-CHRAB"
+Write-Host ""
