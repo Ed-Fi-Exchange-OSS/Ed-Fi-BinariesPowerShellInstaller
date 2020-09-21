@@ -1,3 +1,8 @@
+# SPDX-License-Identifier: Apache-2.0
+# Licensed to the Ed-Fi Alliance under one or more agreements.
+# The Ed-Fi Alliance licenses this file to you under the Apache License, Version 2.0.
+# See the LICENSE and NOTICES files in the project root for more information.
+
 ############################################################
  
 # Author: Douglas Loyo, Sr. Solutions Architect @ MSDF
@@ -34,8 +39,9 @@ Function Install-TrustedSSLCertificate()
     
     # New certificates can only be installed into MY store. So lets export it and import it into LocalMachine\Root
     # We need to import into LocalMachine\Root so that its a valid trusted SSL certificate.
-    Export-Certificate -Cert $selfSignedCert -FilePath "C:\temp\ed-fi\edfiLocalhostSSL.crt"
-    $certInRoot = Import-Certificate -CertStoreLocation 'Cert:\LocalMachine\Root' -FilePath "C:\temp\ed-fi\edfiLocalhostSSL.crt"
+    $certPath = $global:tempPathForBinaries + "edfiLocalhostSSL.crt"
+    Export-Certificate -Cert $selfSignedCert -FilePath $certPath
+    $certInRoot = Import-Certificate -CertStoreLocation 'Cert:\LocalMachine\Root' -FilePath $certPath
     $certInRoot.FriendlyName = $certFriendlyName
 
     return $selfSignedCert

@@ -1,3 +1,8 @@
+# SPDX-License-Identifier: Apache-2.0
+# Licensed to the Ed-Fi Alliance under one or more agreements.
+# The Ed-Fi Alliance licenses this file to you under the Apache License, Version 2.0.
+# See the LICENSE and NOTICES files in the project root for more information.
+
 ############################################################
  
 # Author: Douglas Loyo, Sr. Solutions Architect @ MSDF
@@ -7,22 +12,17 @@
 
 # Note: This powershell has to be ran with Elevated Permissions (As Administrator) and in a x64 environment.
 # Know issues and future todo's:
-#   1) What about DSC? Should we contemplate Desired State Configuration? Should Ed-Fi Rereqs be verified and or installed?
-#      Look at: Install-EdFiPrerequisites()
-#   2) TODO: As of now, the code does not inspect MsSQL server data and log file locations. You have to provide them manually.
-#   3) TODO: As of now you can not provide a MsSQL connection string and only does local "."
+#   1) What about DSC? Should we contemplate Desired State Configuration?
+#   2) TODO: As of now you can not provide a MsSQL connection string and only does local "."
  
 ############################################################
 
-#load assemblies
-[System.Reflection.Assembly]::LoadWithPartialName("Microsoft.SqlServer.SMO") | Out-Null
-#Need SmoExtended for backups
-[System.Reflection.Assembly]::LoadWithPartialName("Microsoft.SqlServer.SmoExtended") | Out-Null
-
+Import-Module "$PSScriptRoot\IO" -Force
 Import-Module "$PSScriptRoot\SSL" -Force
 Import-Module "$PSScriptRoot\MsSQLServer" -Force
 Import-Module "$PSScriptRoot\IIS" -Force 
-Import-Module "$PSScriptRoot\Chocolatey" -Force 
+Import-Module "$PSScriptRoot\Chocolatey" -Force
+Import-Module "$PSScriptRoot\Logging" -Force
 
 # Helper functions
 Function RunBaseEdFiInstall($environment, $edfiVersion) {
@@ -50,9 +50,6 @@ Function RunBaseEdFiInstall($environment, $edfiVersion) {
     # SQL Server Path Variables (You can override with your desired path)
     $dataFileDestination = Get-MsSQLDataFileDestination
     $logFileDestination  = Get-MsSQLLogFileDestination
-
-    # Other Parameters you should not need to change
-    $tempPathForBinaries = "C:\temp\ed-fi\binaries\" # The temp path to use to download needed Ed-Fi binaries.
 
     # Binaries Metadata
     $binaries = @(  
@@ -193,14 +190,14 @@ Function RunBaseEdFiInstall($environment, $edfiVersion) {
     Install-EdFiPrerequisites
 
     #1) Ensure temp path is accessible and exists if not create it.
-    Write-HostStep "Step: Ensuring temp path is accessible. ($tempPathForBinaries)"
-    New-Item -ItemType Directory -Force -Path $tempPathForBinaries
+    Write-HostStep "Step: Ensuring temp path is accessible. ($global:tempPathForBinaries)"
+    New-Item -ItemType Directory -Force -Path $global:tempPathForBinaries
 
     #2) Download necesarry binaries and unzip them to its final install location.
     Write-HostStep "Step: Downloading and Unziping all binaries."
     foreach ($b in $binaries | Where-Object {($_.requiredInEnvironments.Contains($environment)) -or (!$_.requiredInEnvironments)}) {
         #build path for binay. Note: all NuGet packages are zips.
-        $destPath = "$tempPathForBinaries\" + $b.name + "$edfiVersion.zip"
+        $destPath = "$global:tempPathForBinaries\" + $b.name + "$edfiVersion.zip"
 
         # Optimization (Caching Packages): Check to see if file exists. If it does NOT then download.
         # TODO: Maybe add a force parameter here if(... -and !Force)
@@ -330,30 +327,6 @@ Function RunBaseEdFiInstall($environment, $edfiVersion) {
     }
 }
 
-Function Write-HostInfo($message) { 
-    $divider = "----"
-    for($i=0;$i -lt $message.length;$i++){ $divider += "-" }
-    Write-Host $divider -ForegroundColor Cyan
-    Write-Host " " $message -ForegroundColor Cyan
-    Write-Host $divider -ForegroundColor Cyan 
-}
-
-Function Write-HostStep($message) { 
-    Write-Host "*** " $message " ***"-ForegroundColor Green
-}
-
-Function Write-BigMessage($title, $message) {
-    $divider = "*** "
-    for($i=0;$i -lt $message.length;$i++){ $divider += "*" } 
-    Write-Host $divider -ForegroundColor Green
-    Write-Host "*"-ForegroundColor Green
-    Write-Host "*** " $title " ***"-ForegroundColor Green
-    Write-Host "*"-ForegroundColor Green
-    Write-Host "* " $message " *"-ForegroundColor Green
-    Write-Host "*"-ForegroundColor Green
-    Write-Host $divider -ForegroundColor Green
-}
-
 Function Install-EdFiPrerequisites() {
     $allPreReqsInstalled = $true
     
@@ -362,6 +335,9 @@ Function Install-EdFiPrerequisites() {
     # Ensure the following are installed.
     Install-Chocolatey
     
+    # If SQL Server Already installed ensure correct version is installed.
+    Find-MsSQLServerDependency "."
+
     # Lets install the ones that need a reboot/powershell restart
     Install-MsSQLServerExpress
     Install-NetFramework48
@@ -378,10 +354,6 @@ Function Get-Password($length)
     if(!$length) { $length = 30 }
     $r = New-Guid
     return $r.ToString().Replace('-','').Substring(0,$length)
-}
-
-Function Invoke-DownloadFile($url, $outputpath) {
-    Invoke-WebRequest -Uri $url -OutFile $outputpath
 }
 
 # Region: Web.Config Functions
@@ -521,22 +493,21 @@ Function Set-DocsHTMLPathsToWorkWithVirtualDirectories($swaggerDefaultHtmlPath)
 }
 
 Function Install-EdFiProductionV34 {
+
+    Start-Logging
+
     # Used to measure execution time.
     $start_time = Get-Date
     RunBaseEdFiInstall "Production" "3.4.0"
     #DONE
     Write-Output "Done... Time taken: $((Get-Date).Subtract($start_time).Seconds) second(s)"
+
+    Stop-Logging
+    # If no error then lets write a 
+    if (!$error) { Write-SuccessInstallFile  }
 }
 
 Function Install-EdFiSandboxV34 {
-    # Used to measure execution time.
-    $start_time = Get-Date
-    RunBaseEdFiInstall "Sandbox" "3.4.0"
-    #DONE
-    Write-Output "Done... Time taken: $((Get-Date).Subtract($start_time).Seconds) second(s)"
-}
-
-Function Install-EdFiSandboxV34-APIOnly {
     # Used to measure execution time.
     $start_time = Get-Date
     RunBaseEdFiInstall "Sandbox" "3.4.0"

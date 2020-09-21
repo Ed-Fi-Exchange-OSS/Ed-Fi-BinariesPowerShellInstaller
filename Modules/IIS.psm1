@@ -1,3 +1,8 @@
+# SPDX-License-Identifier: Apache-2.0
+# Licensed to the Ed-Fi Alliance under one or more agreements.
+# The Ed-Fi Alliance licenses this file to you under the Apache License, Version 2.0.
+# See the LICENSE and NOTICES files in the project root for more information.
+
 ############################################################
  
 # Author: Douglas Loyo, Sr. Solutions Architect @ MSDF
@@ -56,10 +61,10 @@ Function IsNetVersionInstalled($major, $minor){
 
 Function Install-NetFramework48() {
     if(!(IsNetVersionInstalled 4 8)){
-        Write-Host "     Installing: .Net Version 4.8"
+        Write-Host "Installing: .Net Version 4.8"
         choco install dotnetfx -y
         # Will need to restart so lets give the user a message and exit here.
         Write-BigMessage ".Net Framework Requires a Restart" "Please restart this computer and re run the install."
         Write-Error "Please Restart" -ErrorAction Stop
-    }else{ Write-Host "     Skiping: .Net Version 4.8 as it is already installed." }
+    }else{ Write-Host "Skiping: .Net Version 4.8 as it is already installed." }
 }
