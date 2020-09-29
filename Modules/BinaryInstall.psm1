@@ -30,8 +30,9 @@ Function RunBaseEdFiInstall($environment, $edfiVersion) {
     # Initial Parameters and Variables used as Settings
     #$edfiVersion = "3.3.0" # major versions supported: 3.3.0  TODO: 3.2.0
     #$environment = "Production" # values are: Sandbox, Production
+    $iisRootFolder = "C:\inetpub\wwwroot"
     $versionWithNoPeriods = 'v'+$edfiVersion.Replace(".", "")
-    $installPathForBinaries = "C:\inetpub\wwwroot\v$edfiVersion$environment" # The final path where the binaries will be installed.
+    $installPathForBinaries = "$iisRootFolder\v$edfiVersion$environment" # The final path where the binaries will be installed.
 
     #IIS Settings
     $parentSiteName = "Default Web Site"
@@ -325,6 +326,11 @@ Function RunBaseEdFiInstall($environment, $edfiVersion) {
             }
         }
     }
+
+    #Final step Copy the html to the IIS root folder
+    Write-HostStep "Step: Deploying Ed-Fi default HTML to IIS root"
+    Copy-EdFiHTML($iisRootFolder)
+    Start-Process "https://localhost/"
 }
 
 Function Install-EdFiPrerequisites() {
@@ -490,6 +496,14 @@ Function Set-DocsHTMLPathsToWorkWithVirtualDirectories($swaggerDefaultHtmlPath)
     $fileContent = Get-Content $swaggerDefaultHtmlPath
     $fileContent[3]+="<base href='docs/' />"
     $fileContent | Set-Content $swaggerDefaultHtmlPath
+}
+
+Function Copy-EdFiHTML($iisRootFolder)
+{
+    $srcPath = "$global:pathToAssets\serverhtml\*"
+    
+    #Copy all folder content
+    Copy-Item -Path $srcPath -Destination $iisRootFolder -Recurse
 }
 
 Function Install-EdFiProductionV34 {

@@ -1,10 +1,9 @@
-﻿PowerShell Ed-Fi MyGet Installer Scripts
-============
+﻿# PowerShell Ed-Fi MyGet Installer Scripts
 
 These scripts were made possible thanks to the Michael and Susan Dell Foundation.
 
-Description
-------------
+## Description
+
 These Powershell scripts install the public Ed-Fi binaries published on the MyGet feed.
 
 **Note:** As of the latest update these scripts can install the ODS API, Docs,  AdminApp & SandboxAdmin in the following versions:
@@ -19,45 +18,65 @@ Bianries can be found here:
 * Sandbox Admin: https://www.myget.org/feed/ed-fi/package/nuget/EdFi.Ods.Admin.Web.EFA 
 * Docs-Swagger: https://www.myget.org/F/ed-fi/api/v2/package/EdFi.Ods.SwaggerUI.EFA
 
-Prerequisites
-------------
-We recommend that the following prerequisites are installed on the machine that you are going to run the scripts on.
+## Prerequisites
+### Minimum System Requirements
+A machine or virtual machine with internet access.
+
+* 50GB free storage space
+* 4GB+ of available RAM
+* Windows Server 2019
+* Administrator access to physical machine or virtual machine
+
+### Software Requirements
 
 **NOTE:** If you do not have these prerequisites the scripts will install them for you. This will require a restart.
 
-1. MsSQL Server 2017 or higher. (If using for development you can use the Developer edition. If this will be a production environment please use appropriate licensing. These scripts were tested with versions 2017 and 2019.) The scripts will install MsSQL Server Express 2019 if it doesnt find a preinstalled version.
-2. IIS - Internet Information Services (The scripts will install and configure it.)
-3. .Net Framework 4.8. (The scripts will install it but a restart will be required after install. This is why we recommend to be installed before hand.)
+* MsSQL Server 2019 or higher
+* IIS - Internet Information Services
+* .Net Framework 4.8. (Restart will be required if not previously installed.)
 
 That is it =)
 
 
-Setup Instructions
-------------
+## Setup Instructions
 
-1. Download the scripts in zip format 
-<br/><img src="img/download.png" width="300" >
-2. Unzip them to a known location like C:\temp\ed-fi\
-<img src="img/explorer1.png"  width="400" >
-3. Open PowerShell as an "Administrator"
-<br/><img src="img/powershell1.png" width="400" >
-4. Navigate to the path where you unziped the scripts
-<br/><img src="img/Powershell2.png" width="400" >
-5. Execute the following commands:
+**1)** Open a Windows PowerShell as and Administrator.
+From the **Windows Menu**, search for **PowerShell**, right click on it, and select **Run as Administrator**
+<br/><img src="img/powershell1.png" width="600" >
 
-```PowerShell
-C:\temp\ed-fi\> .\BinaryInstall.ps1
-```
-<br/><img src="img/Powershell3.png" width="400" >
-<br/>Then choose the environment you wish to install and install it. For the sake of this tutorial we will do "Production v3.4.0"
+**2)** Run the automated installer by pasting this command in to the PowerShell window:
+> Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://github.com/Ed-Fi-Exchange-OSS/Ed-Fi-BinariesPowerShellInstaller/raw/main/install.ps1'))
+
+It will download all necessarry scripts and display an install menu like the image below:
+<br/><img src="img/Powershell3.png" width="800" >
+
+**3)** Run the Ed-Fi v3.4.0 installer by pasting this command in to the PowerShell window:
 
 ```PowerShell
-C:\temp\ed-fi\> Install-EdFiProductionV34
+Install-EdFiProductionV34
 ```
-You will see a screen like the one bellow: "Confirms Done"
+You will see the script executing. It will check  for prerequisites and install as needed. (Sample image below)
+<br/><img src="img/PowerShellInstall2.png" width="800" >
+
+This part of the installer will take about 10-30 mins to download and install the components of this solution.
+
+***NOTE:** If you dont have .Net Framework 4.8 it will install it for you, however it will require a restart.
+
+***After the restart redo step 1, 2 & 3.**
+<br/><img src="img/PowerShellInstall3.png" width="800" >
+
+
+**4)** Once the Ed-Fi install finishes you will see a screen like the one bellow: "Confirms Done"
 <br/><img src="img/PowershellDone.png" width="400" >
 
-## License
+## Legal Information
 
-Licensed under the [Ed-Fi
-License](https://www.ed-fi.org/getting-started/license-ed-fi-technology/).
+Copyright (c) 2020 Ed-Fi Alliance, LLC and contributors.
+
+Licensed under the [Apache License, Version 2.0](LICENSE) (the "License").
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
