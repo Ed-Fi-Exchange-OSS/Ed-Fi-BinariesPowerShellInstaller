@@ -10,6 +10,8 @@
 # Description: Install script that downloads the repo zip en loads mosules.
 
 ############################################################
+#Requires -Version 5
+#Requires -RunAsAdministrator
 
 # 1) Ensure the working directory exists
 $global:pathToWorkingDir = "C:\Ed-Fi\BinaryInstaller\"
