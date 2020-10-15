@@ -9,6 +9,8 @@
 # Know issues and future todo's: (look at the .PSM1 file)
  
 ############################################################
+#Requires -Version 5
+#Requires -RunAsAdministrator
 
 #Clear all errors before starting.
 $error.clear()
