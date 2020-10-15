@@ -52,6 +52,37 @@ Function RunBaseEdFiInstall($environment, $edfiVersion) {
     $dataFileDestination = Get-MsSQLDataFileDestination
     $logFileDestination  = Get-MsSQLLogFileDestination
 
+    $packageVerificationHash = @{
+        v260 = @{ 
+                   Api = "ED9BF01EC19F85F70F70C7F15AF27CF45CDE5987175204BD748548C2C28E889A";
+                   AdminApp="99DE262DD94CCBE4314FEA866992FE159D09784D6F6DC10AFB958DBE4BA7F840";
+                   Dbs="52C82FBB95EACBADB01150A8E26A2B7E20BFC54DDE043DCEFE9466A881A04E1D";
+                   Docs="981F309AA4E09D8B370C2D24EA10AB82CF88C0D400C3B97A828C6A366734EA08";
+                   SandboxAdmin = "2EDFDA252E9A81CC7A7C54C35EFC39D72A00AB729E8E3F8206181E2CDA079820";
+                }
+        v320 = @{ 
+                    Api = "67A41A10A3FCE9A521F7810FF67487B5E0A2C47C3BC4556B4259247BAAE6665C";
+                    AdminApp="3123E0CFC401CAB0487A72410C3C785D182C4856B4D5ECE687E4478C4AA39AB0";
+                    Dbs="6FB330D4BD591D7D228F38201DB03C65E4D3F35FC01B7ACFF01603750A94D89E";
+                    Docs="5A3D796A4A871E5FE57C3F526BF5085B400970B437D9D9498EFD0232AFC2E149";
+                    SandboxAdmin = "9F385640EDEA3D0A1997AD1998C30280B3FED94179BAC2EE792A273C310A1206";
+                }
+        v330 = @{ 
+                    Api = "D95B0B44C906B6EF2BBCF1166E6389BCD8C361B4051DD433C1B748ED2BCE3C9C";
+                    AdminApp="0FBF8BF7B36EFDFE0EA18134D91B12529613F5AB258497F39C58B3F574B1991E";
+                    Dbs="F9C3E82FB11EA7C86DF9DD107C64E28259DB277BAD7EB0AACF0DFF42100539F9";
+                    Docs="C654F420448ED5D44B36C0D6F57B40C398DCD386AA368FB91B1FCBAA224C04A8";
+                    SandboxAdmin = "BF6AE3E1FE9A296E89054DFF0CD74230F009CDEE98AC9CDD6FCE26A93922C715";
+                }
+        v340 = @{ 
+                    Api = "281505346B5C1AE6E259C6657587CDECD344425DF7E85D2A36173B0BD235DE75";
+                    AdminApp="0FBF8BF7B36EFDFE0EA18134D91B12529613F5AB258497F39C58B3F574B1991E";
+                    Dbs="15C2BDD5C7AD450975A2385246B7F43CC7303A27041962E88811B798DD89475B";
+                    Docs="71A839A92D02E86EE1EB17FA7792F42601CAF4908DD2BF63907415C8D6F45940";
+                    SandboxAdmin = "4236FA3148007670970548C1A77E4C490F0380EEB3589145FBCD9A697F0D9430";
+                }
+            }
+
     # Binaries Metadata
     $binaries = @(  
                     @{  name = "Api"; type = "WebApp";
@@ -106,7 +137,8 @@ Function RunBaseEdFiInstall($environment, $edfiVersion) {
                     }
                     @{  name="Dbs"; type="Databases"; 
                         requiredInEnvironments = @("Production","Staging","Sandbox")
-                        url="http://www.toolwise.net/EdFi v$edfiVersion databases with Sample Ext.zip"; }
+                        url="http://www.toolwise.net/EdFi v$edfiVersion databases with Sample Ext.zip"; 
+                    }
                     @{  name="SandboxAdmin"; type="WebApp";
                         description = "This is the SandboxAdmin tool.";
                         requiredInEnvironments = @("Sandbox")
@@ -188,7 +220,7 @@ Function RunBaseEdFiInstall($environment, $edfiVersion) {
     Write-HostInfo "Installing Ed-Fi v$edfiVersion ($environment) from Ed-Fi MyGet feed binaries."
     # 0) Ensure all Prerequisites are installed.
     Write-HostStep "Step: Ensuring all Prerequisites are installed."
-    Install-EdFiPrerequisites
+    #Install-EdFiPrerequisites
 
     #1) Ensure temp path is accessible and exists if not create it.
     Write-HostStep "Step: Ensuring temp path is accessible. ($global:tempPathForBinaries)"
@@ -197,19 +229,24 @@ Function RunBaseEdFiInstall($environment, $edfiVersion) {
     #2) Download necesarry binaries and unzip them to its final install location.
     Write-HostStep "Step: Downloading and Unziping all binaries."
     foreach ($b in $binaries | Where-Object {($_.requiredInEnvironments.Contains($environment)) -or (!$_.requiredInEnvironments)}) {
-        #build path for binay. Note: all NuGet packages are zips.
+        #build destination path for binay. Note: all NuGet packages are zips.
+        $downloadUrl = $b.url
         $destPath = "$global:tempPathForBinaries\" + $b.name + "$edfiVersion.zip"
-
+        $expectedHash = $packageVerificationHash[$versionWithNoPeriods][$b.name]
+        
+        # TODO: Remove once Ed-Fi versions align. For example: right now api 3.3.0 has admin app 3.3.0. but 3.2.0 has 3.2.0.1
+        if($b.urlVersionOverride -and $b.urlVersionOverride[$versionWithNoPeriods]){ $downloadUrl = $b.urlVersionOverride[$versionWithNoPeriods] }
+        
         # Optimization (Caching Packages): Check to see if file exists. If it does NOT then download.
-        # TODO: Maybe add a force parameter here if(... -and !Force)
-        if(!(Test-Path $destPath -PathType Leaf)){
-            # TODO: Remove once Ed-Fi versions align. For example: right now api 3.3.0 has admin app 3.3.0. but 3.2.0 has 3.2.0.1
-            #Invoke-DownloadFile $b.url $destPath
-            $downloadUrl = $b.url
-            if($b.urlVersionOverride -and $b.urlVersionOverride[$versionWithNoPeriods]){ $downloadUrl = $b.urlVersionOverride[$versionWithNoPeriods] }
-
-            Write-Host "     Downloading " $downloadUrl " to -> " $destPath
+        if(!(Test-Path $destPath -PathType Leaf) -Or !(Assert-FileHashIsEqual $expectedHash $destPath)) {
+            Write-Host " Downloading (" $downloadUrl ") to -> " $destPath
             Invoke-DownloadFile $downloadUrl $destPath
+        }
+
+        # Ensure that the download file is not corrupted. (This could happen in the event there is a )
+        Write-Host "Verifying downloaded file integrity (Hash Check)"
+        if(!(Assert-FileHashIsEqual $expectedHash $destPath)) {
+            Write-Error "Error: File downloaded is corrupt. Please ensure machine does NOT have a firewall, proxy or policy that is preventing this file from being downloaded. To diagnose you can copy the following address into your browser. ($downloadUrl)" -ErrorAction Stop
         }
 
         #2.1) Once downloaded unzip to install path.
@@ -353,6 +390,15 @@ Function Install-EdFiPrerequisites() {
     
     # If not all Pre Reqs installed halt!
     if(!$allPreReqsInstalled){ Write-Error "Error: Missing Prerequisites. Look above for list." -ErrorAction Stop }
+}
+
+Function Assert-FileHashIsEqual($expectedHash, $filePath) {
+    # If the file does not exist then return false.
+    if(!(Test-Path $filePath -PathType Leaf)){ return $false }
+
+    $currentFileHash = (Get-FileHash -Path $filePath).Hash
+    
+    return ($expectedHash -eq $currentFileHash)
 }
 
 Function Get-Password($length)

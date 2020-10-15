@@ -52,3 +52,7 @@ Function Invoke-DownloadFile($url, $outputpath) {
     $wc.Downloadfile($url, $outputpath)
 }
 
+Function Get-FileSize($file) {
+    $fs = Get-Childitem -file $file | % {[int]($_.length / 1kb)}
+    return $fs
+}
