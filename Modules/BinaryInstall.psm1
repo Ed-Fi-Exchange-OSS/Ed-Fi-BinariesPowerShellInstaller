@@ -43,14 +43,11 @@ Function RunBaseEdFiInstall($environment, $edfiVersion) {
 
     #MsSQL Db Settings
     $sqlServerInstance = "."
-    $backupLocation = "$installPathForBinaries\dbs\"
     $dbNamePrefix = "v$edfiVersion" + "_" + "$environment" + "_" #For example: prefix would be v3.3.0_Production_  so the dbs will be v3.3.0_Production_EdFi_ODS
     $dbNameSufix = ""
     $integratedSecurityUser = "IIS APPPOOL\DefaultAppPool"
     $integratedSecurityRole = 'sysadmin'
-    # SQL Server Path Variables (You can override with your desired path)
-    $dataFileDestination = Get-MsSQLDataFileDestination
-    $logFileDestination  = Get-MsSQLLogFileDestination
+    
 
     $packageVerificationHash = @{
         v260 = @{ 
@@ -220,7 +217,7 @@ Function RunBaseEdFiInstall($environment, $edfiVersion) {
     Write-HostInfo "Installing Ed-Fi v$edfiVersion ($environment) from Ed-Fi MyGet feed binaries."
     # 0) Ensure all Prerequisites are installed.
     Write-HostStep "Step: Ensuring all Prerequisites are installed."
-    #Install-EdFiPrerequisites
+    Install-EdFiPrerequisites
 
     #1) Ensure temp path is accessible and exists if not create it.
     Write-HostStep "Step: Ensuring temp path is accessible. ($global:tempPathForBinaries)"
@@ -333,12 +330,8 @@ Function RunBaseEdFiInstall($environment, $edfiVersion) {
 
     #5) Restore needed Databases
     Write-HostStep "Step: MsSQL Restoring databases"
-    $apiDatabases = ($binaries | Where-Object {$_.name -eq "Api"}).databases;
-
-    foreach($db in $apiDatabases | Where-Object {($_.environment -eq $environment) -or (!$_.environment)}) {
-        $newDbName = Get-DestDbName $db $dbNamePrefix $dbNameSufix
-        Restore-Database $db $newDbName $backupLocation $dataFileDestination $logFileDestination
-    }
+    $backupLocation = "$installPathForBinaries\dbs\"
+    Restore-EdFiDatabases $binaries $environment $dbNamePrefix $dbNameSufix $backupLocation
 
     #6) MsSQL Ensure that the "IIS APPPOOL\DefaultAppPool" user has security login and has Server Roles -> sysadmin.
     Add-SQLUser $sqlServerInstance $integratedSecurityUser $integratedSecurityRole
@@ -368,6 +361,21 @@ Function RunBaseEdFiInstall($environment, $edfiVersion) {
     Write-HostStep "Step: Deploying Ed-Fi default HTML to IIS root"
     Copy-EdFiHTML($iisRootFolder)
     Start-Process "https://localhost/"
+}
+
+Function Restore-EdFiDatabases($binaries, $environment, $dbNamePrefix, $dbNameSufix, $backupLocation)
+{
+    # SQL Server Path Variables (You can override with your desired path)
+    $dataFileDestination = Get-MsSQLDataFileDestination
+    $logFileDestination  = Get-MsSQLLogFileDestination
+
+    Write-HostStep "Step: MsSQL Restoring databases"
+    $apiDatabases = ($binaries | Where-Object {$_.name -eq "Api"}).databases;
+
+    foreach($db in $apiDatabases | Where-Object {($_.environment -eq $environment) -or (!$_.environment)}) {
+        $newDbName = Get-DestDbName $db $dbNamePrefix $dbNameSufix
+        Restore-Database $db $newDbName $backupLocation $dataFileDestination $logFileDestination
+    }
 }
 
 Function Install-EdFiPrerequisites() {
@@ -549,7 +557,7 @@ Function Copy-EdFiHTML($iisRootFolder)
     $srcPath = "$global:pathToAssets\serverhtml\*"
     
     #Copy all folder content
-    Copy-Item -Path $srcPath -Destination $iisRootFolder -Recurse
+    Copy-Item -Path $srcPath -Destination $iisRootFolder -Recurse -force
 }
 
 Function Install-EdFiProductionV34 {

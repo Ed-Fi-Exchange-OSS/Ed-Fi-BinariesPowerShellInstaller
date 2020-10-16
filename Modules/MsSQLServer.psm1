@@ -156,8 +156,8 @@ Function Restore-Database($db, $dbDestinationName, $backupLocation, $dataFileDes
 	    $logFileOrigin = "EdFi_Ods_Minimal_Template_log"
 	}
 	  
-	$RelocateData = New-Object Microsoft.SqlServer.Management.Smo.RelocateFile("$dataFileOrigin", "$dataFileLocation")
-    $RelocateLog = New-Object Microsoft.SqlServer.Management.Smo.RelocateFile("$logFileOrigin", "$logFileLocation")
+	$RelocateData = New-Object Microsoft.SqlServer.Management.Smo.RelocateFile($dataFileOrigin, $dataFileLocation)
+    $RelocateLog = New-Object Microsoft.SqlServer.Management.Smo.RelocateFile($logFileOrigin, $logFileLocation)
     Write-Host "***Debugging***"
     Write-Host "Data Relocation:" 
     Write-Host "        origin: $dataFileOrigin"
@@ -166,7 +166,7 @@ Function Restore-Database($db, $dbDestinationName, $backupLocation, $dataFileDes
     Write-Host "        origin: $logFileOrigin"
     Write-Host "        destin: $logFileLocation" 
     Write-Host "    Running Command:> Restore-SqlDatabase -ServerInstance '.' -Database $newDbName -BackupFile $backupLocation$originDbName.bak -RelocateFile @($RelocateData,$RelocateLog) -ReplaceDatabase"
-	Restore-SqlDatabase -ServerInstance "." -Database "$newDbName" -BackupFile "$backupLocation$originDbName.bak" -RelocateFile @($RelocateData,$RelocateLog) -ReplaceDatabase
+	Restore-SqlDatabase -ServerInstance "." -Database "$newDbName" -BackupFile "$backupLocation$originDbName.bak" -ReplaceDatabase -RelocateFile @($RelocateData,$RelocateLog)
 }
 
 function Remove-SqlDatabase($databaseName) {    
