@@ -257,7 +257,7 @@ Function RunBaseEdFiInstall($environment, $edfiVersion) {
     Write-HostStep "Step: Setting file system permissions"
     Write-Host "     Setting permissions on: $installPathForBinaries"
     Set-PermissionsOnPath $installPathForBinaries "IIS_IUSRS" "ReadAndExecute"
-    if($environment -eq "Production"){ Set-PermissionsOnPath "$installPathForBinaries\AdminApp" "IIS_IUSRS" "Write" }
+    if($environment -eq "Production"){ Set-PermissionsOnPath "$installPathForBinaries\AdminApp" "IIS_IUSRS" "FullControl" }
 
     #3) Configuring IIS
     Write-HostStep "Step: Configuring IIS"
