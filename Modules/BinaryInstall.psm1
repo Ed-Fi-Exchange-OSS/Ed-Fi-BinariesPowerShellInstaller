@@ -359,8 +359,68 @@ Function RunBaseEdFiInstall($environment, $edfiVersion) {
 
     #Final step Copy the html to the IIS root folder
     Write-HostStep "Step: Deploying Ed-Fi default HTML to IIS root"
+    Install-EdFiIndexHTML $iisRootFolder
+}
+
+Function Install-EdFiIndexHTML($iisRootFolder)
+{
     Copy-EdFiHTML($iisRootFolder)
+    $indexHTMLPath = "$iisRootFolder\index.html"
+
+    $indexHTML = Get-Content -Path $indexHTMLPath -Raw
+    foreach($vd in Get-InstalledVirtualDirectories $iisRootFolder)
+    {
+        $htmlSnipet = Get-HTMLTemplate $vd
+        $pattern = "<!--{$vd}-->"
+        $indexHTML = ($indexHTML -replace $pattern, $htmlSnipet)
+    }
+    
+    Set-Content -Path $indexHTMLPath -Value $indexHTML
+
+    #Launch the html page.
     Start-Process "https://localhost/"
+}
+
+Function Get-InstalledVirtualDirectories($iisRootFolder)
+{
+    $vds = @()
+    $allFolders = Get-ChildItem -Path $iisRootFolder -Directory -Force -ErrorAction SilentlyContinue | Select-Object FullName
+    foreach($vd in $allFolders)
+    {
+        if($vd -match 'v[0-9].[0-9].[0-9](?:Production|Sandbox)'){
+            $vds += $Matches.0
+        }
+    }
+
+    return $vds
+}
+
+Function Get-HTMLTemplate($virtualDirectoryName) {
+    $var = $virtualDirectoryName -match 'v[0-9].[0-9].[0-9]'
+    $edfiVersion = $Matches.0
+    if($virtualDirectoryName -match "Sandbox") { 
+        return "<ul><h4>$edfiVersion</h4>
+                    <li>Api - <a href=""https://localhost/$virtualDirectoryName/api"" target=""_blank"" >(Click here)</a></li>
+                    <li>Docs / Swagger - <a href=""https://localhost/$virtualDirectoryName/docs"" target=""_blank"" >(Click here)</a></li>
+                    <li>Sandbox Admin - <a href=""https://localhost/$virtualDirectoryName/SandboxAdmin"" target=""_blank"" >(Click here)</a>
+                        <ul>
+                            <li>User: test@ed-fi.org</li>
+                            <li>Password: ***REMOVED***</li>
+                        </ul>
+                    </li>
+                </ul>"
+    }
+
+    return "<ul><h4>$edfiVersion</h4>
+                <li>Api - <a href=""https://localhost/$virtualDirectoryName/api"" target=""_blank"" >(Click here)</a></li>
+                <li>Docs / Swagger - <a href=""https://localhost/$virtualDirectoryName/docs"" target=""_blank"" >(Click here)</a></li>
+                <li>Admin App - <a href=""https://localhost/$virtualDirectoryName/AdminApp"" target=""_blank"" >(Click here)</a>
+                    <ul>
+                        <li>User: Administrator</li>
+                        <li>Password: EdFi!sCool</li>
+                    </ul>
+                </li>
+            </ul>"
 }
 
 Function Restore-EdFiDatabases($binaries, $environment, $dbNamePrefix, $dbNameSufix, $backupLocation)
@@ -557,7 +617,7 @@ Function Copy-EdFiHTML($iisRootFolder)
     $srcPath = "$global:pathToAssets\serverhtml\*"
     
     #Copy all folder content
-    Copy-Item -Path $srcPath -Destination $iisRootFolder -Recurse -force
+    Copy-Item -Path $srcPath -Destination $iisRootFolder -Recurse #-force
 }
 
 Function Install-EdFiProductionV34 {
