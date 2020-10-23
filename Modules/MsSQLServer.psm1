@@ -158,15 +158,20 @@ Function Restore-Database($db, $dbDestinationName, $backupLocation, $dataFileDes
 	  
 	$RelocateData = New-Object Microsoft.SqlServer.Management.Smo.RelocateFile($dataFileOrigin, $dataFileLocation)
     $RelocateLog = New-Object Microsoft.SqlServer.Management.Smo.RelocateFile($logFileOrigin, $logFileLocation)
-    Write-Host "***Debugging***"
-    Write-Host "Data Relocation:" 
-    Write-Host "        origin: $dataFileOrigin"
-    Write-Host "        destin: $dataFileLocation" 
-    Write-Host "Log Relocation:" 
-    Write-Host "        origin: $logFileOrigin"
-    Write-Host "        destin: $logFileLocation" 
-    Write-Host "    Running Command:> Restore-SqlDatabase -ServerInstance '.' -Database $newDbName -BackupFile $backupLocation$originDbName.bak -RelocateFile @($RelocateData,$RelocateLog) -ReplaceDatabase"
-	Restore-SqlDatabase -ServerInstance "." -Database "$newDbName" -BackupFile "$backupLocation$originDbName.bak" -ReplaceDatabase -RelocateFile @($RelocateData,$RelocateLog)
+    # Write-Host "***Debugging***"
+    # Write-Host "Data Relocation:" 
+    # Write-Host "        origin: $dataFileOrigin"
+    # Write-Host "        destin: $dataFileLocation" 
+    # Write-Host "Log Relocation:" 
+    # Write-Host "        origin: $logFileOrigin"
+    # Write-Host "        destin: $logFileLocation" 
+    # Write-Host "    Running Command:> Restore-SqlDatabase -ServerInstance '.' -Database $newDbName -BackupFile $backupLocation$originDbName.bak -RelocateFile @($RelocateData,$RelocateLog) -ReplaceDatabase"
+    if(Get-MsSQLServerVersion "." -eq 14) {
+        Restore-SqlDatabase -ServerInstance "." -Database "$newDbName" -BackupFile "$backupLocation$originDbName.bak" -ReplaceDatabase
+    }
+    else {
+        Restore-SqlDatabase -ServerInstance "." -Database "$newDbName" -BackupFile "$backupLocation$originDbName.bak" -ReplaceDatabase -RelocateFile @($RelocateData,$RelocateLog)
+    }
 }
 
 function Remove-SqlDatabase($databaseName) {    
