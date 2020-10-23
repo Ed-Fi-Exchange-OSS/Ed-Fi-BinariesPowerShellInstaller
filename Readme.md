@@ -69,6 +69,15 @@ This part of the installer will take about 10-30 mins to download and install th
 **4)** Once the Ed-Fi install finishes you will see a screen like the one bellow: "Confirms Done"
 <br/><img src="img/PowershellDone.png" width="400" >
 
+## Know Issues and Quick Fixes
+### 1) Database in Use, can't Restore over it
+Error: Restore-SqlDatabase : System.Data.SqlClient.SqlError: Exclusive access could not be obtained because the database is in use.
+<br/><img src="img/Error1.png" width="600" >
+
+Resolution: Restart your MsSQL server and try the install agan.
+
+
+
 ## Legal Information
 
 Copyright (c) 2020 Ed-Fi Alliance, LLC and contributors.
