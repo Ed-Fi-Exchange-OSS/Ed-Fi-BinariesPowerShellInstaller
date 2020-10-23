@@ -166,7 +166,9 @@ Function Restore-Database($db, $dbDestinationName, $backupLocation, $dataFileDes
     # Write-Host "        origin: $logFileOrigin"
     # Write-Host "        destin: $logFileLocation" 
     # Write-Host "    Running Command:> Restore-SqlDatabase -ServerInstance '.' -Database $newDbName -BackupFile $backupLocation$originDbName.bak -RelocateFile @($RelocateData,$RelocateLog) -ReplaceDatabase"
-    if(Get-MsSQLServerVersion "." -eq 14) {
+    $ver = Get-MsSQLServerVersion "."
+    Write-Host "MsSQL Server Version $ver"
+    if($ver -eq 14) {
         Restore-SqlDatabase -ServerInstance "." -Database "$newDbName" -BackupFile "$backupLocation$originDbName.bak" -ReplaceDatabase
     }
     else {
