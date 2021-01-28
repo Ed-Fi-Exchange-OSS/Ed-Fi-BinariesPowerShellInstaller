@@ -460,6 +460,39 @@ Function Install-EdFiPrerequisites() {
     if(!$allPreReqsInstalled){ Write-Error "Error: Missing Prerequisites. Look above for list." -ErrorAction Stop }
 }
 
+Function Install-EdFiAPIPrerequisitesWithOUTUrlRewrite() {
+    $allPreReqsInstalled = $true
+    
+    Write-Host "Ensurering all Prerequisites are installed:"
+
+    # Ensure the following are installed.
+    Install-Chocolatey
+    
+    Install-NetFramework48
+    
+    Install-IISPrerequisites
+    
+    # If not all Pre Reqs installed halt!
+    if(!$allPreReqsInstalled){ Write-Error "Error: Missing Prerequisites. Look above for list." -ErrorAction Stop }
+}
+
+Function Install-EdFiAPIPrerequisitesWithUrlRewrite() {
+    $allPreReqsInstalled = $true
+    
+    Write-Host "Ensurering all Prerequisites are installed:"
+
+    # Ensure the following are installed.
+    Install-Chocolatey
+    
+    Install-NetFramework48
+    
+    Install-IISPrerequisites
+    Install-IISUrlRewrite
+    
+    # If not all Pre Reqs installed halt!
+    if(!$allPreReqsInstalled){ Write-Error "Error: Missing Prerequisites. Look above for list." -ErrorAction Stop }
+}
+
 Function Assert-FileHashIsEqual($expectedHash, $filePath) {
     # If the file does not exist then return false.
     if(!(Test-Path $filePath -PathType Leaf)){ return $false }
