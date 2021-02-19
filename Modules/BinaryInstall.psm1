@@ -23,7 +23,8 @@ Import-Module "$PSScriptRoot\MsSQLServer" -Force
 Import-Module "$PSScriptRoot\IIS" -Force 
 Import-Module "$PSScriptRoot\Chocolatey" -Force
 Import-Module "$PSScriptRoot\Logging" -Force
-
+Import-Module "$PSScriptRoot\PrerequisitesHelper" -Force
+Import-Module "$PSScriptRoot\Appsettings" -Force
 # Helper functions
 Function RunBaseEdFiInstall($environment, $edfiVersion) {
 
@@ -33,14 +34,14 @@ Function RunBaseEdFiInstall($environment, $edfiVersion) {
     $iisRootFolder = "C:\inetpub\wwwroot"
     $versionWithNoPeriods = 'v' + $edfiVersion.Replace(".", "")
     $installPathForBinaries = "$iisRootFolder\v$edfiVersion$environment" # The final path where the binaries will be installed.
-
+    $isCore = IsEdfiVersionNetCore $versionWithNoPeriods
     #IIS Settings
     $parentSiteName = "Default Web Site"
     $applicationPool = "DefaultAppPool"
     $virtualDirectoryName = "v$edfiVersion$environment"
     $appsBaseUrl = "https://localhost/$virtualDirectoryName"
     $apiBaseUrl = "$appsBaseUrl/api"
-
+    
     #MsSQL Db Settings
     $sqlServerInstance = "."
     $dbNamePrefix = "v$edfiVersion" + "_" + "$environment" + "_" #For example: prefix would be v3.3.0_Production_  so the dbs will be v3.3.0_Production_EdFi_ODS
@@ -78,6 +79,13 @@ Function RunBaseEdFiInstall($environment, $edfiVersion) {
             Docs         = "71A839A92D02E86EE1EB17FA7792F42601CAF4908DD2BF63907415C8D6F45940";
             SandboxAdmin = "4236FA3148007670970548C1A77E4C490F0380EEB3589145FBCD9A697F0D9430";
         }
+        v510 = @{
+            Api          = "382B6A674F9D27850B2CCF659FC9267C263F1FC2770577EC46A2E3A6D597B9D3";
+            AdminApp     = "0FBF8BF7B36EFDFE0EA18134D91B12529613F5AB258497F39C58B3F574B1991E";
+            Dbs          = "A52951B7BF1FA96DAC6B52EA069CC50CFC5CCBD8AE12BD361B07111A11CF2795";
+            Docs         = "09885D9AD5A2D51ACF0C90828425013AADD3ACB60FDA51C7A49426E2E2E3884B";
+            SandboxAdmin = "B86C589ED1DE37C598225BAF26959E1B16EE7B3EFDC00F45DE60144D39E642D2";
+        }
     }
 
     # Binaries Metadata
@@ -85,6 +93,9 @@ Function RunBaseEdFiInstall($environment, $edfiVersion) {
         @{  name = "Api"; type = "WebApp";
             requiredInEnvironments = @("Production", "Staging", "Sandbox")
             url = "https://www.myget.org/F/ed-fi/api/v2/package/EdFi.Ods.WebApi.EFA/$edfiVersion";
+            urlVersionOverride = @{
+                v510 = "https://www.myget.org/F/ed-fi/api/v2/package/EdFi.Suite3.Ods.WebApi/5.1.0"
+            }
             iisAuthentication = @{ "anonymousAuthentication" = $true 
                 "windowsAuthentication"                      = $false
             }
@@ -104,6 +115,69 @@ Function RunBaseEdFiInstall($environment, $edfiVersion) {
                 v340 = @{  
                     Production = @{ "apiStartup:type" = 'SharedInstance' };
                     Sandbox    = @{ "apiStartup:type" = 'Sandbox' };
+                }
+                v510 = @{
+                    Production = @{ "apiStartup:type" = 'SharedInstance' };
+                    Sandbox    = @{ 
+                        "ApiSettings" = @{
+                            "Mode"                    = 'Sandbox'
+                            "Engine"                  = 'SQLServer'
+                            "OdsTokens"               = @()
+                            "Features"                = @(
+                                @{
+                                    "Name"      = 'OpenApiMetadata'
+                                    "IsEnabled" = $true
+                                }
+                                @{ 
+                                    "Name"      = "AggregateDependencies"
+                                    "IsEnabled" = $true 
+                                }
+                                @{ 
+                                    "Name"      = "TokenInfo"
+                                    "IsEnabled" = $true 
+                                }
+                                @{ 
+                                    "Name"      = "Extensions"
+                                    "IsEnabled" = $true
+                                }
+                                @{ 
+                                    "Name"      = "Composites"
+                                    "IsEnabled" = $true 
+                                }
+                                @{ 
+                                    "Name"      = "Profiles"
+                                    "IsEnabled" = $false 
+                                }
+                                @{ 
+                                    "Name"      = "ChangeQueries"
+                                    "IsEnabled" = $false 
+                                }
+                                @{ 
+                                    "Name"      = "IdentityManagement"
+                                    "IsEnabled" = $false 
+                                }
+                                @{ 
+                                    "Name"      = "OwnershipBasedAuthorization"
+                                    "IsEnabled" = $false 
+                                }
+                                @{ 
+                                    "Name"      = "UniqueIdValidation"
+                                    "IsEnabled" = $false
+                                }
+                            )
+                            "ExcludedExtensions"      = @()
+                            "OdsDatabaseTemplateName" = ''
+                            "DropDatabases"           = $false
+                            "MinimalTemplateSuffix"   = "Ods_Minimal_Template"
+                            "PopulatedTemplateSuffix" = "Ods_Populated_Template"
+                            "MinimalTemplateScript"   = "EdFiMinimalTemplate"
+                            "PopulatedTemplateScript" = "GrandBend"
+                        }
+                        "Plugin"      = @{
+                            "Folder"  = ''
+                            "Scripts" = @()
+                        }
+                    };
                 }
             }
             databases = @(  #all environments
@@ -135,6 +209,90 @@ Function RunBaseEdFiInstall($environment, $edfiVersion) {
         @{  name = "Dbs"; type = "Databases"; 
             requiredInEnvironments = @("Production", "Staging", "Sandbox")
             url = "http://www.toolwise.net/EdFi v$edfiVersion databases with Sample Ext.zip"; 
+            urlVersionOverride = @{
+                v510 = "https://www.myget.org/F/ed-fi/api/v2/package/EdFi.Suite3.RestApi.Databases/5.1.0"
+            }
+            envAppSettings = @{
+                v510 = @{
+                    Production = @{ "apiStartup:type" = 'SharedInstance' };
+                    Sandbox    = @{ 
+                        "ApiSettings" = @{
+                            "Mode"                    = 'Sandbox'
+                            "Engine"                  = 'SQLServer'
+                            "OdsTokens"               = @()
+                            "Features"                = @(
+                                @{
+                                    "Name"      = 'OpenApiMetadata'
+                                    "IsEnabled" = $true
+                                }
+                                @{ 
+                                    "Name"      = "AggregateDependencies"
+                                    "IsEnabled" = $true 
+                                }
+                                @{ 
+                                    "Name"      = "TokenInfo"
+                                    "IsEnabled" = $true 
+                                }
+                                @{ 
+                                    "Name"      = "Extensions"
+                                    "IsEnabled" = $true
+                                }
+                                @{ 
+                                    "Name"      = "Composites"
+                                    "IsEnabled" = $true 
+                                }
+                                @{ 
+                                    "Name"      = "Profiles"
+                                    "IsEnabled" = $false 
+                                }
+                                @{ 
+                                    "Name"      = "ChangeQueries"
+                                    "IsEnabled" = $false 
+                                }
+                                @{ 
+                                    "Name"      = "IdentityManagement"
+                                    "IsEnabled" = $false 
+                                }
+                                @{ 
+                                    "Name"      = "OwnershipBasedAuthorization"
+                                    "IsEnabled" = $false 
+                                }
+                                @{ 
+                                    "Name"      = "UniqueIdValidation"
+                                    "IsEnabled" = $false
+                                }
+                            )
+                            "ExcludedExtensions"      = @()
+                            "OdsDatabaseTemplateName" = ''
+                            "DropDatabases"           = $false
+                            "MinimalTemplateSuffix"   = "Ods_Minimal_Template"
+                            "PopulatedTemplateSuffix" = "Ods_Populated_Template"
+                            "MinimalTemplateScript"   = "EdFiMinimalTemplate"
+                            "PopulatedTemplateScript" = "GrandBend"
+                        }
+                        "Plugin"      = @{
+                            "Folder"  = ''
+                            "Scripts" = @()
+                        }
+                    };
+                }
+            }
+            envConnectionStrings = @{
+                Production = @{
+                    "EdFi_Ods"               = "Server=.; Database=$dbNamePrefix" + "EdFi_ODS; Trusted_Connection=True; Application Name=EdFi.Ods.WebApi;"
+                    "EdFi_Admin"             = "Server=.; Database=$dbNamePrefix" + "EdFi_Admin; Trusted_Connection=True; Application Name=EdFi.Ods.WebApi;"
+                    "EdFi_Security"          = "Server=.; Database=$dbNamePrefix" + "EdFi_Security; Trusted_Connection=True; Persist Security Info=True; Application Name=EdFi.Ods.WebApi;"
+                    "EdFi_master"            = "Server=.; Database=master; Trusted_Connection=True; Application Name=EdFi.Ods.WebApi;"
+                    "BulkOperationDbContext" = "Server=.; Database=$dbNamePrefix" + "EdFi_Bulk; Trusted_Connection=True; MultipleActiveResultSets=True; Application Name=EdFi.Ods.WebApi;"
+                }
+                Sandbox    = @{
+                    "EdFi_Ods"               = "Server=.; Database=$dbNamePrefix" + "EdFi_{0}; Trusted_Connection=True; Application Name=EdFi.Ods.WebApi;"
+                    "EdFi_Admin"             = "Server=.; Database=$dbNamePrefix" + "EdFi_Admin; Trusted_Connection=True; Application Name=EdFi.Ods.WebApi;"
+                    "EdFi_Security"          = "Server=.; Database=$dbNamePrefix" + "EdFi_Security; Trusted_Connection=True; Persist Security Info=True; Application Name=EdFi.Ods.WebApi;"
+                    "EdFi_master"            = "Server=.; Database=master; Trusted_Connection=True; Application Name=EdFi.Ods.WebApi;"
+                    "BulkOperationDbContext" = "Server=.; Database=$dbNamePrefix" + "EdFi_Bulk; Trusted_Connection=True; MultipleActiveResultSets=True; Application Name=EdFi.Ods.WebApi;"
+                }
+            }
         }
         @{  name = "SandboxAdmin"; type = "WebApp";
             description = "This is the SandboxAdmin tool.";
@@ -144,17 +302,44 @@ Function RunBaseEdFiInstall($environment, $edfiVersion) {
             urlVersionOverride = @{
                 #v340 = "https://www.myget.org/F/ed-fi/api/v2/package/EdFi.Ods.Admin.Web.EFA/3.3.0"
                 v340 = "https://www.myget.org/F/ed-fi/api/v2/package/EdFi.Ods.SandboxAdmin.Web.EFA/3.4.0"
+                v510 = "https://www.myget.org/F/ed-fi/api/v2/package/EdFi.Suite3.Ods.SandboxAdmin/5.1.0"
             }
             iisAuthentication = @{ "anonymousAuthentication" = $true 
                 "windowsAuthentication"                      = $false
             }
-            connectionStrings = @{
+            coreAppsettings = @{
+                "ApiSettings" = @{
+                    "Engine" = 'SQLServer'
+                }
+                "OAuthUrl"    = "https://localhost/$virtualDirectoryName/api/oauth/"
+                "User"        = @{
+                    "Test Admin" = @{
+                        "Email"             = 'test@ed-fi.org'
+                        "Admin"             = "true"
+                        "NamespacePrefixes" = @(
+                            'uri://ed-fi.org'
+                            'uri://gbisd.org'
+                        )
+                        "Password"          = '***REMOVED***'
+                        "Sandboxes"         = @{
+                            "Minimal Demonstration Sandbox" = @{
+                                "Key"     = 'minimalKey'
+                                "Type"    = 'Minimal'
+                                "Secret"  = 'minimalSecret'
+                                "Refresh" = 'false'
+                            }
+                        }
+                        
+                    }
+                }
+            }
+            envConnectionStrings = @{
                 "EdFi_Ods"                   = "Server=.; Database=$dbNamePrefix" + "EdFi_{0};      Trusted_Connection=True; Application Name=EdFi.Ods.WebApi;"
                 "EdFi_Admin"                 = "Server=.; Database=$dbNamePrefix" + "EdFi_Admin;    Trusted_Connection=True; Application Name=EdFi.Ods.WebApi;"
                 "EdFi_Security"              = "Server=.; Database=$dbNamePrefix" + "EdFi_Security; Trusted_Connection=True; Persist Security Info=True; Application Name=EdFi.Ods.WebApi;"
                 "EdFi_master"                = "Server=.; Database=master;        Trusted_Connection=True; Application Name=EdFi.Ods.WebApi;"
                 "UniqueIdIntegrationContext" = "Server=.; Database=$dbNamePrefix" + "UniqueId;     Trusted_Connection=True; MultipleActiveResultSets=True; Application Name=EdFi.Ods.WebApi;"
-            };
+            }
             appSettings = @{ "apiStartup:type" = 'Sandbox' };
             webConfigTagInsert = @{"//initialization" = '<users><add name="Test Admin" email="test@ed-fi.org" password="***REMOVED***" admin="true" /></users>' };
             webConfigTagPostInstall = @{"//initialization" = '' };
@@ -168,6 +353,7 @@ Function RunBaseEdFiInstall($environment, $edfiVersion) {
             urlVersionOverride = @{
                 #v340 = "https://www.myget.org/F/ed-fi/api/v2/package/EdFi.Ods.SwaggerUI.EFA/3.3.0"
                 v340 = "https://www.myget.org/F/ed-fi/api/v2/package/EdFi.Ods.SwaggerUI.EFA/3.4.0"
+                v510 = "https://www.myget.org/F/ed-fi/api/v2/package/EdFi.Suite3.Ods.SwaggerUI/5.1.0"
             }
             iisAuthentication = @{ "anonymousAuthentication" = $true 
                 "windowsAuthentication"                      = $false
@@ -186,6 +372,9 @@ Function RunBaseEdFiInstall($environment, $edfiVersion) {
                     "swagger.webApiMetadataUrl" = "$apiBaseUrl/metadata/"
                     "swagger.webApiVersionUrl"  = "$apiBaseUrl" 
                 };
+                v510 = @{
+                    "WebApiVersionUrl" = "https://localhost/$virtualDirectoryName/api"
+                }
             };
         }
         @{ name                    = "AdminApp";
@@ -194,6 +383,7 @@ Function RunBaseEdFiInstall($environment, $edfiVersion) {
             requiredInEnvironments = @("Production", "Staging")
             url                    = "https://www.myget.org/F/ed-fi/api/v2/package/EdFi.ODS.AdminApp.Web/$edfiVersion";
             urlVersionOverride     = @{
+                v510 = "https://www.myget.org/F/ed-fi/api/v2/package/EdFi.ODS.AdminApp.Web/3.3.0"
                 v340 = "https://www.myget.org/F/ed-fi/api/v2/package/EdFi.ODS.AdminApp.Web/3.3.0"
                 v320 = "https://www.myget.org/F/ed-fi/api/v2/package/EdFi.ODS.AdminApp.Web/3.2.0.1"
                 v250 = "https://www.myget.org/F/ed-fi/api/v2/package/EdFi.ODS.AdminApp.Web/2.5.1"
@@ -220,7 +410,7 @@ Function RunBaseEdFiInstall($environment, $edfiVersion) {
     Write-HostInfo "Installing Ed-Fi v$edfiVersion ($environment) from Ed-Fi MyGet feed binaries."
     # 0) Ensure all Prerequisites are installed.
     Write-HostStep "Step: Ensuring all Prerequisites are installed."
-    Install-EdFiPrerequisites
+    Install-EdFiPrerequisites $isCore
 
     #1) Ensure temp path is accessible and exists if not create it.
     Write-HostStep "Step: Ensuring temp path is accessible. ($global:tempPathForBinaries)"
@@ -228,6 +418,7 @@ Function RunBaseEdFiInstall($environment, $edfiVersion) {
 
     #2) Download necesarry binaries and unzip them to its final install location.
     Write-HostStep "Step: Downloading and Unziping all binaries."
+
     foreach ($b in $binaries | Where-Object { ($_.requiredInEnvironments.Contains($environment)) -or (!$_.requiredInEnvironments) }) {
         #build destination path for binay. Note: all NuGet packages are zips.
         $downloadUrl = $b.url
@@ -281,7 +472,7 @@ Function RunBaseEdFiInstall($environment, $edfiVersion) {
         # Create Web Application
         New-WebApplication -Name $appName  -Site "$parentSiteName\$virtualDirectoryName" -PhysicalPath $appPhysicalPath -ApplicationPool $applicationPool -Force
 
-        # Set IIS Authentication settings
+        # Set IIS Authentication settings, configures IIS Windows Auth and Anonymous Auth
         if ($b.iisAuthentication) {
             foreach ($key in $b.iisAuthentication.Keys) {
                 Write-Host "     $key  = " $b.iisAuthentication.Item($key)
@@ -293,71 +484,54 @@ Function RunBaseEdFiInstall($environment, $edfiVersion) {
     #4) Update Web.config values AppSettings, ConnStrings and Log Files
     Write-HostStep "Step: IIS Configuring Web.Config appSettings, connectionStrings, logfiles & secret.json properties"
     foreach ($b in $binaries | Where-Object { ($_.type -eq "WebApp") -and (($_.requiredInEnvironments.Contains($environment)) -or (!$_.requiredInEnvironments)) }) {
-        $appPhysicalPath = "$installPathForBinaries\" + $b.name + "\Web.Config"
-
-        Write-Host "     Updating " $b.name " web.config..." -ForegroundColor Cyan
-        Write-Host "      File @: " $appPhysicalPath
-
-        # Apply global settings
-        if ($b.appSettings) { Set-AppSettingsInWebConfig $appPhysicalPath $b.appSettings }
-        if ($b.connectionStrings) { Set-ConnectionStringsInWebConfig $appPhysicalPath $b.connectionStrings }
-        if ($b.logFile) { Set-Log4NetLogFileInWebConfig $appPhysicalPath $b.logFile }
-        if ($b.webConfigTagInsert) { Set-TagInWebConfig $appPhysicalPath $b.webConfigTagInsert }
-
-        # Environment and Version Specifics
-        if ($b.envAppSettings) {
-            if ($b.envAppSettings[$versionWithNoPeriods][$environment]) { 
-                Set-AppSettingsInWebConfig $appPhysicalPath $b.envAppSettings[$versionWithNoPeriods][$environment] 
-            }
-            else {
-                Set-AppSettingsInWebConfig $appPhysicalPath $b.envAppSettings[$versionWithNoPeriods]
-            }
+        if ($isCore) {
+            Install-NETCORESettings $b $installPathForBinaries $versionWithNoPeriods $environment
         }
-        if ($b.envConnectionStrings -and $b.envConnectionStrings[$environment]) { Set-ConnectionStringsInWebConfig $appPhysicalPath $b.envConnectionStrings[$environment] }
+        else {
+            Install-NETSettings $b $installPathForBinaries $versionWithNoPeriods $environment
+        }
+    }
 
-        # v2.x
-        if ($versionWithNoPeriods -eq "v260") { 
-            if ($b.name -eq "AdminApp") {
-                $secretJsonPhysicalPath = "$installPathForBinaries\" + $b.name + "\secret.json"
-                Write-Host "     Setting secret JSON to use Integrated Security: " $secretJsonPhysicalPath
-                Set-IntegratedSecurityInSecretJsonFile($secretJsonPhysicalPath)
-            }
-
-            if ($b.name -eq "Docs") {
-                $swaggerDefaultHtmlPath = "$installPathForBinaries\" + $b.name + "\default.html"
-                Write-Host "     Setting Swagger Docs path to work with Virtual Directories" $swaggerDefaultHtmlPath
-                Set-DocsHTMLPathsToWorkWithVirtualDirectories($swaggerDefaultHtmlPath)
-            }
+    if ($isCore) {
+        foreach ($b in $binaries | Where-Object { ($_.type -eq "Databases") -and (($_.requiredInEnvironments.Contains($environment)) -or (!$_.requiredInEnvironments)) }) {
+            Install-NETCORESettings $b $installPathForBinaries $versionWithNoPeriods $environment
         }
     }
 
     #5) Restore needed Databases
     Write-HostStep "Step: MsSQL Restoring databases"
-    $backupLocation = "$installPathForBinaries\dbs\"
-    Restore-EdFiDatabases $binaries $environment $dbNamePrefix $dbNameSufix $backupLocation
-
-    #6) MsSQL Ensure that the "IIS APPPOOL\DefaultAppPool" user has security login and has Server Roles -> sysadmin.
-    Add-SQLUser $sqlServerInstance $integratedSecurityUser $integratedSecurityRole
-
-    if ($environment -eq "Sandbox") {
-        #Some sites like the Sandbox Admin need to be initiallized and then Web.Config updated.
-        Write-HostStep "Step: Post deploy steps."
-        if ($environment -eq "Sandbox") { Initialize-Url "$appsBaseUrl/SandboxAdmin" }
-
-        foreach ($b in $binaries | Where-Object { ($_.type -eq "WebApp") -and (($_.requiredInEnvironments.Contains($environment)) -or (!$_.requiredInEnvironments)) }) {
-            $appPhysicalPath = "$installPathForBinaries\" + $b.name + "\Web.Config"
-
-            if ($b.webConfigTagPostInstall) { 
-                Write-Host "     Updating " $b.name " web.config..." -ForegroundColor Cyan
-                Write-Host "      File @: " $appPhysicalPath
-                Set-TagInWebConfig $appPhysicalPath $b.webConfigTagPostInstall
-            }
-
-            if ($b.webConfigAttributePostInstall) {
-                Set-AttributeValueInWebConfig $appPhysicalPath $b.webConfigAttributePostInstall.xPath $b.webConfigAttributePostInstall.attribute $b.webConfigAttributePostInstall.value
+    if ($isCore) {
+        Invoke-Expression -Command "$installPathForBinaries\Dbs\PostDeploy.ps1"
+        Add-SQLUser $sqlServerInstance $integratedSecurityUser $integratedSecurityRole
+    }
+    else {
+        $backupLocation = "$installPathForBinaries\dbs\"
+        Restore-EdFiDatabases $binaries $environment $dbNamePrefix $dbNameSufix $backupLocation
+    
+        #6) MsSQL Ensure that the "IIS APPPOOL\DefaultAppPool" user has security login and has Server Roles -> sysadmin.
+        Add-SQLUser $sqlServerInstance $integratedSecurityUser $integratedSecurityRole
+    
+        if ($environment -eq "Sandbox") {
+            #Some sites like the Sandbox Admin need to be initiallized and then Web.Config updated.
+            Write-HostStep "Step: Post deploy steps."
+            if ($environment -eq "Sandbox") { Initialize-Url "$appsBaseUrl/SandboxAdmin" }
+    
+            foreach ($b in $binaries | Where-Object { ($_.type -eq "WebApp") -and (($_.requiredInEnvironments.Contains($environment)) -or (!$_.requiredInEnvironments)) }) {
+                $appPhysicalPath = "$installPathForBinaries\" + $b.name + "\Web.Config"
+    
+                if ($b.webConfigTagPostInstall) { 
+                    Write-Host "     Updating " $b.name " web.config..." -ForegroundColor Cyan
+                    Write-Host "      File @: " $appPhysicalPath
+                    Set-TagInWebConfig $appPhysicalPath $b.webConfigTagPostInstall
+                }
+    
+                if ($b.webConfigAttributePostInstall) {
+                    Set-AttributeValueInWebConfig $appPhysicalPath $b.webConfigAttributePostInstall.xPath $b.webConfigAttributePostInstall.attribute $b.webConfigAttributePostInstall.value
+                }
             }
         }
     }
+   
 
     #Final step Copy the html to the IIS root folder
     Write-HostStep "Step: Deploying Ed-Fi default HTML to IIS root"
@@ -435,69 +609,19 @@ Function Restore-EdFiDatabases($binaries, $environment, $dbNamePrefix, $dbNameSu
     }
 }
 
-Function Install-EdFiPrerequisites() {
-    $allPreReqsInstalled = $true
-    
-    Write-Host "Ensurering all Prerequisites are installed:"
-
-    # Ensure the following are installed.
-    Install-Chocolatey
-    
-    # If SQL Server Already installed ensure correct version is installed.
-    Find-MsSQLServerDependency "."
-
-    # Lets install the ones that need a reboot/powershell restart
-    Install-MsSQLServerExpress
-    Install-NetFramework48
-    
-    Install-IISPrerequisites
-    Install-IISUrlRewrite
-    
-    # If not all Pre Reqs installed halt!
-    if (!$allPreReqsInstalled) { Write-Error "Error: Missing Prerequisites. Look above for list." -ErrorAction Stop }
-}
-
-Function Install-EdFiAPIPrerequisitesWithOUTUrlRewrite() {
-    $allPreReqsInstalled = $true
-    
-    Write-Host "Ensurering all Prerequisites are installed:"
-
-    # Ensure the following are installed.
-    Install-Chocolatey
-    
-    Install-NetFramework48
-    
-    Install-IISPrerequisites
-    
-    # If not all Pre Reqs installed halt!
-    if (!$allPreReqsInstalled) { Write-Error "Error: Missing Prerequisites. Look above for list." -ErrorAction Stop }
-}
-
-Function Install-EdFiAPIPrerequisitesWithUrlRewrite() {
-    $allPreReqsInstalled = $true
-    
-    Write-Host "Ensurering all Prerequisites are installed:"
-
-    # Ensure the following are installed.
-    Install-Chocolatey
-    
-    Install-NetFramework48
-    
-    Install-IISPrerequisites
-    Install-IISUrlRewrite
-    
-    # If not all Pre Reqs installed halt!
-    if (!$allPreReqsInstalled) { Write-Error "Error: Missing Prerequisites. Look above for list." -ErrorAction Stop }
-}
-
 Function Assert-FileHashIsEqual($expectedHash, $filePath) {
     # If the file does not exist then return false.
     if (!(Test-Path $filePath -PathType Leaf)) { return $false }
 
-    $currentFileHash = (Get-FileHash -Path $filePath).Hash
+    $currentFileHash = Get-ActualFileHash $filePath
     
     return ($expectedHash -eq $currentFileHash)
 }
+
+function Get-ActualFileHash($filePath) {
+    return (Get-FileHash -Path $filePath).Hash
+}
+
 
 Function Get-Password($length) {
     if (!$length) { $length = 30 }
@@ -505,81 +629,6 @@ Function Get-Password($length) {
     return $r.ToString().Replace('-', '').Substring(0, $length)
 }
 
-# Region: Web.Config Functions
-
-# dictionarry in this case is a Hash with @{"xPath" = "Value"}
-# for example: @{"//initialization" = "<users>....</users>"}
-Function Set-TagInWebConfig($webConfigPath, $dictionary) {
-    # Load XML File and Content
-    $xml = [xml](Get-Content $webConfigPath)
-
-    foreach ($key in $dictionary.Keys) {
-        # Select the xPath Node
-        $xmlNode = $xml.SelectSingleNode($key)
-
-        # Update content.
-        $xmlNode.SetAttribute('enabled', $true)
-        $xmlNode.RemoveAttribute('configSource')
-        $xmlNode.InnerXML = $dictionary[$key]
-    }
-
-    #Once done save.
-    $xml.Save($webConfigPath)
-}
-
-Function Set-AttributeValueInWebConfig($webConfigPath, $xPath, $attribute, $value) {
-    $xml = [xml](Get-Content $webConfigPath)
-
-    # Use XPath to find the appropriate node
-    if (($node = $xml.SelectSingleNode($xPath))) {
-        Write-Host "       -> Setting '$xPath' $attribute = $value"
-        $node.SetAttribute($attribute, $value)
-    }
-
-    $xml.Save($webConfigPath)
-}
-
-Function Set-AppSettingsInWebConfig($webConfigPath, $dictionary) {
-    $xml = [xml](Get-Content $webConfigPath)
-
-    foreach ($key in $dictionary.Keys) {
-        # Use XPath to find the appropriate node
-        if (($addKey = $xml.SelectSingleNode("//appSettings/add[@key = '$key']"))) {
-            Write-Host "       -> Setting '$key' to value $($dictionary[$key])"
-            $addKey.SetAttribute('value', $dictionary[$key])
-        }
-    }
-
-    $xml.Save($webConfigPath)
-}
-
-Function Set-ConnectionStringsInWebConfig($webConfigPath, $connectionStrings) {
-    $xml = [xml](Get-Content $webConfigPath)
-
-    foreach ($key in $connectionStrings.Keys) {
-        # Use XPath to find the appropriate node
-        if (($addKey = $xml.SelectSingleNode("//connectionStrings/add[@name = '$key']"))) {
-            Write-Host "       -> Setting '$key' to value $($connectionStrings[$key])"
-            $addKey.SetAttribute('connectionString', $connectionStrings[$key])
-        }
-    }
-
-    $xml.Save($webConfigPath)
-}
-
-Function Set-Log4NetLogFileInWebConfig($webConfigPath, $logFile) {
-    $xml = [xml](Get-Content $webConfigPath)
-
-    foreach ($key in $logFile.Keys) {
-        # Use XPath to find the appropriate node
-        if (($addKey = $xml.SelectSingleNode("//log4net/appender/file"))) {
-            Write-Host "       -> Setting '$key' to value $($logFile[$key])"
-            $addKey.SetAttribute('value', $logFile[$key])
-        }
-    }
-
-    $xml.Save($webConfigPath)
-}
 
 #TODO: Make this function more generic. Function Set-ValuesInJsonFile($jsonFilePath, $dictionary)
 Function Set-IntegratedSecurityInSecretJsonFile($jsonFilePath) {
@@ -628,12 +677,21 @@ Function Set-DocsHTMLPathsToWorkWithVirtualDirectories($swaggerDefaultHtmlPath) 
 }
 
 Function Copy-EdFiHTML($iisRootFolder) {
+    Write-Host "$global:pathToAssets\serverhtml\*"
     $srcPath = "$global:pathToAssets\serverhtml\*"
     
     #Copy all folder content
     Copy-Item -Path $srcPath -Destination $iisRootFolder -Recurse #-force
 }
 
+
+Function Install-EdFiSandboxV51 {
+    # Used to measure execution time.
+    $start_time = Get-Date
+    RunBaseEdFiInstall "Sandbox" "5.1.0"
+    #DONE
+    Write-Output "Done... Time taken: $((Get-Date).Subtract($start_time).Seconds) second(s)"
+}
 Function Install-EdFiProductionV34 {
 
     Start-Logging

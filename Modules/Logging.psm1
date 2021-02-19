@@ -16,7 +16,7 @@
 
 Function Start-Logging() {
     # Log everything to help debug
-    $ErrorActionPreference="SilentlyContinue"
+    $ErrorActionPreference = "SilentlyContinue"
     Stop-Transcript | out-null
     $ErrorActionPreference = "Continue"
     Set-Location $global:tempPathForBinaries
