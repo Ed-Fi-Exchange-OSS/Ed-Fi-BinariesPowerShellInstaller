@@ -28,6 +28,8 @@ New-Item -ItemType Directory -Force -Path $pathToWorkingDir
 
 Write-HostInfo "Ed-Fi binary installer functions loaded correctly."
 Write-Host "To install Ed-Fi run any of the following commands:" 
+Write-HostStep " Ed-Fi ODS\API v5.1.0"
+Write-Host "    Install-EdFiSandboxV51"
 Write-HostStep " Ed-Fi ODS\API v3.4.0"
 Write-Host "    Install-EdFiProductionV34" 
 Write-Host "    Install-EdFiSandboxV34"

@@ -7,6 +7,7 @@ These scripts were made possible thanks to the Michael and Susan Dell Foundation
 These Powershell scripts install the public Ed-Fi binaries published on the MyGet feed.
 
 **Note:** As of the latest update these scripts can install the ODS API, Docs,  AdminApp & SandboxAdmin in the following versions:
+* v5.1.0
 * v3.4.0
 * v3.3.0
 * v3.2.0
