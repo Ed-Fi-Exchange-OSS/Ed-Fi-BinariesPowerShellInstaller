@@ -21,6 +21,7 @@ Function Install-EdFiPrerequisites($isCore) {
     Install-Chocolatey
     
     # If SQL Server Already installed ensure correct version is installed.
+    Install-SQLServerModule
     Find-MsSQLServerDependency "."
 
     # Lets install the ones that need a reboot/powershell restart

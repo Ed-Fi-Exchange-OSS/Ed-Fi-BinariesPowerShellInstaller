@@ -83,12 +83,13 @@ Function IsNetCoreVersionInstalled($version) {
 
 
 Function Install-NetCore31() {
-    if (!(IsNetCoreVersionInstalled "3.1.12")) {
-        Write-Host "Installing: .Net Core Version 3.1.12"
-        choco install dotnetcore-windowshosting -y
+    $ver = "3.1.12"
+    if (!(IsNetCoreVersionInstalled $ver)) {
+        Write-Host "Installing: .Net Core Version $ver"
+        choco install dotnetcore-windowshosting --version=$ver -y
         # Will need to restart so lets give the user a message and exit here.
         Write-BigMessage ".Net Core Framework Requires a Restart" "Please restart this computer and re run the install."
         Write-Error "Please Restart" -ErrorAction Stop
     }
-    else { Write-Host "Skiping: .Net Core Version 3.1.12 as it is already installed." }
+    else { Write-Host "Skiping: .Net Core Version $ver as it is already installed." }
 }
